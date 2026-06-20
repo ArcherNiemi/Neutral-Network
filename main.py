@@ -1,208 +1,191 @@
+import math
 import random
-import dataPoints
+from dataPoints import dataPoint
 from dataPoints import readDataSet
 
-input_size: int = 2
-hidden_layer_size: int = 3
-number_of_hidden_layers: int = 1
-output_size: int = 1
+class Layer:
+    def __init__(self, numNodesIn, numNodesOut):
+        self.numNodesIn = numNodesIn
+        self.numNodesOut = numNodesOut
 
-dataFile1: str = 'poisonous.csv'
-dataFile2: str = 'poisonous.csv2'
+        self.weights = [[0 for _ in range(numNodesOut)] for _ in range(numNodesIn)]
+        self.baises = [0] * numNodesOut
+        self.costGradiantW = [[0 for _ in range(numNodesOut)] for _ in range(numNodesIn)]
+        self.costGradiantB = [0] * numNodesOut
 
-weights: list = []
-biases: list = []
-nodesIn: int
-nodesOut: int
-currentNode: int = -1
-previous_nodes: list = []
-data_set: list = []
-accuracy: float = 0.5
+        self.activations = [0] * self.numNodesOut
+        self.weightedInputs = [0] * self.numNodesOut
+        self.inputs = [0] * self.numNodesIn
 
-zero: int = 0
-one: int = 0
-neither: int = 0
-currentZero: int = 0
-currentOne: int = 0
-currentZeroP: int = 0
-currentOneP: int = 0
+        self.initializeRandomWeights()
 
-og: bool = False
-costGradientW = []
-costGradientB = []
-learnRate = 0.2
+    def calculateOutputs(self, inputs):
+        self.inputs = inputs
+        for nodeOut in range(self.numNodesOut):
+            weightedInput = self.baises[nodeOut]
+            for nodeIn in range(self.numNodesIn):
+                weightedInput += self.weights[nodeIn][nodeOut] * inputs[nodeIn]
+            self.weightedInputs[nodeOut] = weightedInput
+            self.activations[nodeOut] = self.activationFunction(weightedInput)
+        return self.activations
+    
+    def activationFunction(self, weightedInput):
+        return 1 / (1 + math.exp(-weightedInput))
+
+    def nodeCost(self, outputActivation, expectedOutput):
+        error = outputActivation - expectedOutput
+        return error * error
+    
+    def applyGradiants(self, learnRate):
+        for nodeOut in range(self.numNodesOut):
+            self.baises[nodeOut] -= self.costGradiantB[nodeOut] * learnRate
+            for nodeIn in range(self.numNodesIn):
+                self.weights[nodeIn][nodeOut] -= self.costGradiantW[nodeIn][nodeOut] * learnRate
+
+    def initializeRandomWeights(self):
+        for nodeIn in range(self.numNodesIn):
+            for nodeOut in range(self.numNodesOut):
+                randomValue = random.uniform(-1, 1)
+                self.weights[nodeIn][nodeOut] = randomValue / math.sqrt(self.numNodesIn)
+
+    def calculateOutputLayerNodeValues(self, expectedOutputs):
+        nodeValues = [0] * len(expectedOutputs)
+
+        for i in range(len(expectedOutputs)):
+            costDerivative = self.nodeCostDerivative(self.activations[i], expectedOutputs[i])
+            activationDerivative = self.activationDerivative(self.weightedInputs[i])
+            nodeValues[i] = activationDerivative * costDerivative
+
+        return nodeValues
+
+    def nodeCostDerivative(self, outputActivation, expectedOutput):
+        return 2 * (outputActivation - expectedOutput)
+
+    def activationDerivative(self, weightedInput):
+        activation = self.activationFunction(weightedInput)
+        return activation * (1 - activation)
+    
+    def updateGradiants(self, nodeValues):
+        for nodeOut in range(self.numNodesOut):
+            for nodeIn in range(self.numNodesIn):
+                deritativeCostWrtWeight = self.inputs[nodeIn] * nodeValues[nodeOut]
+                self.costGradiantW[nodeIn][nodeOut] += deritativeCostWrtWeight
+            deritativeCostWrtBais = 1 * nodeValues[nodeOut]
+            self.costGradiantB[nodeOut] += deritativeCostWrtBais
+
+    def calculateHiddenLayerNodeValues(self, oldLayer, oldNodeValues):
+        newNodeValues = [0] * self.numNodesOut
+        for newNodeIndex in range(len(newNodeValues)):
+            newNodeValue = 0
+            for oldNodeIndex in range(len(oldNodeValues)):
+                weightedInputDerivative = oldLayer.weights[newNodeIndex][oldNodeIndex]
+                newNodeValue += weightedInputDerivative * oldNodeValues[oldNodeIndex]
+            newNodeValue *= self.activationDerivative(self.weightedInputs[newNodeIndex])
+            newNodeValues[newNodeIndex] = newNodeValue
+        return newNodeValues
+    
+    def clearGradiants(self):
+        self.costGradiantW = [[0 for _ in range(self.numNodesOut)] for _ in range(self.numNodesIn)]
+        self.costGradiantB = [0] * self.numNodesOut
+
+class NeuralNetwork:
+    def __init__(self, layerSizes):
+        layers = []
+        for i in range(len(layerSizes) - 1):
+            layers.append(Layer(layerSizes[i],layerSizes[i+1]))
+        self.layers = layers
+
+    def calculateOutputs(self, inputs):
+        for i,layer in enumerate(self.layers):
+            inputs = layer.calculateOutputs(inputs)
+        return inputs
+
+    def classify(self,inputs):
+        outputs = self.calculateOutputs(inputs)
+        return outputs.index(max(outputs))
+    
+    def dataPointCost(self, dataPoint):
+        outputs = self.calculateOutputs(dataPoint.inputs)
+        outputLayer = self.layers[-1]
+
+        cost = 0
+        for nodeOut in range(len(outputs)):
+            cost += outputLayer.nodeCost(outputs[nodeOut], dataPoint.outputs[nodeOut])
+
+        return cost
+    
+    def cost(self, data):
+        totalCost = 0
+
+        for i,dataPoint in enumerate(data):
+            totalCost += self.dataPointCost(dataPoint)
+        
+        return totalCost / len(data)
+
+    def learn(self, trainingData, learnRate):
+        h = 0.01
+        originalCost = self.cost(trainingData)
+
+        for i,layer in enumerate(self.layers):
+            
+            for nodeIn in range(layer.numNodesIn):
+                for nodeOut in range(layer.numNodesOut):
+                    layer.weights[nodeIn][nodeOut] += h
+                    deltaCost = self.cost(trainingData) - originalCost
+                    layer.weights[nodeIn][nodeOut] -= h
+                    layer.costGradiantW[nodeIn][nodeOut] = deltaCost / h
+
+            for baisIndex in range(len(layer.baises)):
+                layer.baises[baisIndex] += h
+                deltaCost = self.cost(trainingData) - originalCost
+                layer.baises[baisIndex] -= h
+                layer.costGradiantB[baisIndex] = deltaCost / h
+    
+        self.applyAllGradiants(learnRate)
+
+    def fastLearn(self, trainingData, learnRate):
+        for i,dataPoint in enumerate(trainingData):
+            self.updateAllGradiants(dataPoint)
+        self.applyAllGradiants(learnRate / len(trainingData))
+        self.clearAllGradiants()
+
+    def applyAllGradiants(self,learnRate):
+        for i,layer in enumerate(self.layers):
+            layer.applyGradiants(learnRate)
+
+    def updateAllGradiants(self,dataPoint):
+        self.calculateOutputs(dataPoint.inputs)
+
+        outputLayer = self.layers[-1]
+        nodeValues = outputLayer.calculateOutputLayerNodeValues(dataPoint.outputs)
+        outputLayer.updateGradiants(nodeValues)
+
+        for hiddenLayerIndex in range(len(self.layers)-2, -1, -1):
+            hiddenLayer = self.layers[hiddenLayerIndex]
+            nodeValues = hiddenLayer.calculateHiddenLayerNodeValues(self.layers[hiddenLayerIndex+1], nodeValues)
+            hiddenLayer.updateGradiants(nodeValues)
+
+    def clearAllGradiants(self):
+        for i,layer in enumerate(self.layers):
+            layer.clearGradiants()
+
+    def percentCorrect(self, data):
+        amount = 0
+        for i,dataPoint in enumerate(data):
+            output = self.classify(dataPoint.inputs)
+            correctOutput = dataPoint.outputs.index(max(dataPoint.outputs))
+            if(output == correctOutput):
+                amount += 1
+        return amount / len(data) * 100
 
 def run():
-    setUp()
-    for i in range(200):
-        learn(data_set)
-        if(i % 5 == 0):
-            accuracyTemp = accuracy
-            print("Accuracy: ", accuracyTemp, '%', sep="")
-            print("Cost:", totalCost(data_set))
-            print("currentZeros: ", round(currentZeroP, 1), "%", sep="")
-            print("currentOnes: ", round(currentOneP, 1), "%", sep="")
-    print("Zeros:", zero)
-    print("Ones:", one)
-    print("Neither:", neither)
+    neuralNetwork = NeuralNetwork([2,3,2])
+    dataSet = readDataSet("poisonous.csv")
+    for i in range(20000):
+        neuralNetwork.fastLearn(random.sample(dataSet, 200), 0.5)
+        if(i % 50 == 0):
+            print(neuralNetwork.cost(dataSet))
+            print(neuralNetwork.percentCorrect(dataSet))
 
-def setUp():
-    global  data_set
-    makeRandomWeightsAndBiases()
-    data_set = readDataSet(dataFile1)
-
-
-
-def setUpPreviousNodes(dataPoint):
-    global previous_nodes
-    previous_nodes.clear
-    for i in range(hidden_layer_size):
-        previous_nodes.append(0)
-    for i in range(input_size):
-        previous_nodes[i] = dataPoint[i]
-
-def makeRandomWeightsAndBiases():
-    global weights
-    global biases
-    global costGradientB
-    global costGradientW
-    numberOfWeights = input_size * hidden_layer_size + (hidden_layer_size * hidden_layer_size) * (number_of_hidden_layers - 1) + (hidden_layer_size * output_size)
-    numberOfBiases = hidden_layer_size * number_of_hidden_layers + output_size
-    for i in range(numberOfWeights):
-        weights.append(random.uniform(-1,1))
-    for i in range(numberOfBiases):
-        biases.append(random.uniform(-1,1))
-    for i in range(len(weights)):
-        costGradientW.append(0)
-    for i in range(len(biases)):
-        costGradientB.append(0)
-
-def learn(data):
-    global accuracy
-    global og
-    og = True
-    accuracy = 0
-    ogCost = totalCost(data)
-    og = False
-    h = 0.001
-    for i in range(len(weights)):
-        weights[i] += h
-        deltaCost = totalCost(data) - ogCost
-        weights[i] -= h
-        costGradientW[i] = deltaCost / h
-    for i in range(len(biases)):
-        biases[i] += h
-        deltaCost = totalCost(data) - ogCost
-        biases[1] -= h
-        costGradientB[i] = deltaCost / h
-    apply()
-
- 
-
-def apply():
-    for i in range(len(weights)):
-        weights[i] -= costGradientW[i] * learnRate
-    for i in range(len(biases)):
-        biases[i] -= costGradientB[i] * learnRate
-
-def nodeCost(output, expectedOutput):
-   # error = expectedOutput * log(output) + (1-expectedOutput) * log(1-output)
-    error = output - expectedOutput
-    return error * error
-
-def cost(dataPoint):
-    global accuracy
-    outputs = calculateOutputs(dataPoint)
-    cost = 0
-    for i in range(output_size):
-        cost += nodeCost(outputs[i], dataPoint[2])
-        zeroOrOne(outputs[i])
-        if(og):
-            findAccuracy(outputs[i], dataPoint[2])
-    return cost
-
-def totalCost(data):
-    resetCurrents()
-    totalCost = 0
-    currentDataPoint: list = [0,0,0]
-    for i in range(int(len(data))):
-        currentDataPoint[0] = data[i].spikes
-        currentDataPoint[1] = data[i].spots
-        currentDataPoint[2] = data[i].poisonous
-        totalCost += cost(currentDataPoint)
-    currentsToPercents()
-    return totalCost / len(data)
-
-def resetCurrents():
-    global currentZero
-    global currentOne
-    currentZero = 0
-    currentOne = 0
-
-def currentsToPercents():
-    global currentZeroP
-    global currentOneP
-    currentZeroP = round((currentZero / (currentZero + currentOne)) * 100 ,1)
-    currentOneP = round((currentOne / (currentZero + currentOne)) * 100 ,1)
-
-def zeroOrOne(output):
-    global zero
-    global one
-    global neither
-    global currentZero
-    global currentOne
-    roundedOutput = round(output)
-    if(roundedOutput == 1 and output <= 1):
-        one += 1
-        currentOne += 1 
-    elif(roundedOutput == 0 and output >= 0):
-        zero += 1
-        currentZero += 1 
-    else:
-        neither += 1
-
-def findAccuracy(output, expectedOutput):
-    global accuracy
-    roundedOutput = round(output)
-    if(roundedOutput == expectedOutput and output <= 1 and output >= 0):
-        accuracy += 1 / len(data_set) * 100
-        accuracy = round(accuracy, 1)
-
-
-
-def calculateOutputs(dataPoint):
-    global nodesIn
-    global nodesOut
-    global currentNode
-    setUpPreviousNodes(dataPoint)
-    currentNode = -1
-    nodesIn = input_size
-    nodesOut = hidden_layer_size
-    calculateColumn()
-    nodesIn = hidden_layer_size
-    for i in range(number_of_hidden_layers - 1):
-        calculateColumn()
-    nodesOut = output_size
-    calculateColumn()
-    outputs: list = []
-    for i in range(output_size):
-        outputs.append(previous_nodes[i])
-        outputs[0] = 1 / (2 ** -outputs[0] + 1)
-        if(outputs[i] > 1):
-            outputs[i] = 1
-    return outputs
-
-def calculateColumn():
-    global currentNode
-    for i in range(nodesOut):
-        previous_nodes[i] = calculateNode()
-        currentNode += 1
- 
-def calculateNode():
-    newNode = 0
-    for i in range(nodesIn):
-        newNode += previous_nodes[i] * weights[currentNode + i * nodesOut]
-    newNode + biases[currentNode]
-    return newNode
-
-run()
+if __name__ == "__main__":
+    run()
