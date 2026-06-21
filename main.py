@@ -2,8 +2,10 @@ import math
 import random
 from dataPoints import dataPoint
 from dataPoints import readDataSet
+from dataPoints import readFRCDataSet
 import pandas as pd
 import pickle
+from datetime import datetime
 
 class Layer:
     def __init__(self, numNodesIn, numNodesOut):
@@ -189,14 +191,21 @@ def loadNN(name):
         return pickle.load(f)
 
 def run():
-    neuralNetwork = loadNN("network.pkl")
-    dataSet = readDataSet("poisonous.csv")
-    for i in range(20):
-        neuralNetwork.fastLearn(random.sample(dataSet, 200), 0.5)
+    start = datetime.now()
+    neuralNetwork = NeuralNetwork([6,4,2])
+    dataSet = readFRCDataSet("FRCTrainingData.csv")
+    for i in range(20000):
+        neuralNetwork.fastLearn(random.sample(dataSet, 100), 0.1)
         if(i % 10 == 0):
             print(neuralNetwork.cost(dataSet))
             print(neuralNetwork.percentCorrect(dataSet))
-    neuralNetwork.save("network.pkl")
+    testingDataSet = readFRCDataSet("FRCTestingData.csv")
+    print("testing")
+    print(neuralNetwork.cost(testingDataSet))
+    print(neuralNetwork.percentCorrect(testingDataSet))
+    end = datetime.now()
+    print(f"Time: {end - start}")
+    neuralNetwork.save("frcNetwork.pkl")
 
 if __name__ == "__main__":
     run()
