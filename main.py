@@ -2,6 +2,8 @@ import math
 import random
 from dataPoints import dataPoint
 from dataPoints import readDataSet
+import pandas as pd
+import pickle
 
 class Layer:
     def __init__(self, numNodesIn, numNodesOut):
@@ -178,14 +180,23 @@ class NeuralNetwork:
                 amount += 1
         return amount / len(data) * 100
 
+    def save(self, name):
+        with open(name, "wb") as f:
+            pickle.dump(self, f)
+
+def loadNN(name):
+    with open(name, "rb") as f:
+        return pickle.load(f)
+
 def run():
-    neuralNetwork = NeuralNetwork([2,3,2])
+    neuralNetwork = loadNN("network.pkl")
     dataSet = readDataSet("poisonous.csv")
-    for i in range(20000):
+    for i in range(20):
         neuralNetwork.fastLearn(random.sample(dataSet, 200), 0.5)
-        if(i % 50 == 0):
+        if(i % 10 == 0):
             print(neuralNetwork.cost(dataSet))
             print(neuralNetwork.percentCorrect(dataSet))
+    neuralNetwork.save("network.pkl")
 
 if __name__ == "__main__":
     run()
