@@ -181,6 +181,17 @@ class NeuralNetwork:
             if(output == correctOutput):
                 amount += 1
         return amount / len(data) * 100
+    
+    def printTrainingData(self,data):
+        correctData = []
+        for i,dataPoint in enumerate(data):
+            output = self.classify(dataPoint.inputs)
+            correctOutput = dataPoint.outputs.index(max(dataPoint.outputs))
+            if(output == correctOutput):
+                correctData.append(1)
+            else:
+                correctData.append(0)
+        print(correctData)
 
     def save(self, name):
         with open(name, "wb") as f:
@@ -192,13 +203,19 @@ def loadNN(name):
 
 def run():
     start = datetime.now()
-    neuralNetwork = NeuralNetwork([6,4,2])
+    neuralNetwork = NeuralNetwork([6,8,8,2])
     dataSet = readFRCDataSet("FRCTrainingData.csv")
-    for i in range(20000):
-        neuralNetwork.fastLearn(random.sample(dataSet, 100), 0.1)
-        if(i % 10 == 0):
+    simulations = 5000000
+    for i in range(simulations):
+        neuralNetwork.fastLearn(random.sample(dataSet, 100), 0.2)
+        if(i % 1000 == 0):
+            print(f"{round(i/simulations*100,2)}%")
             print(neuralNetwork.cost(dataSet))
             print(neuralNetwork.percentCorrect(dataSet))
+    neuralNetwork.printTrainingData(dataSet)
+    print("--------------------------")
+    print(neuralNetwork.cost(dataSet))
+    print(neuralNetwork.percentCorrect(dataSet))
     testingDataSet = readFRCDataSet("FRCTestingData.csv")
     print("testing")
     print(neuralNetwork.cost(testingDataSet))
