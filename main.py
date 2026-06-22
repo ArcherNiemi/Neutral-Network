@@ -6,6 +6,8 @@ from dataPoints import readFRCDataSet
 import pandas as pd
 import pickle
 from datetime import datetime
+import matplotlib.pyplot as plt
+import numpy as np
 
 class Layer:
     def __init__(self, numNodesIn, numNodesOut):
@@ -203,26 +205,93 @@ def loadNN(name):
 
 def run():
     start = datetime.now()
-    neuralNetwork = NeuralNetwork([6,8,8,2])
+    neuralNetwork = NeuralNetwork([6,4,2])
     dataSet = readFRCDataSet("FRCTrainingData.csv")
-    simulations = 5000000
+    simulations = 1000000
+    testingDataSet = readFRCDataSet("FRCTestingData.csv")
+
+    plt.ion()
+
+    fig, ax1 = plt.subplots()
+
+    ax2 = ax1.twinx()  # second y-axis
+
+    training_cost_line, = ax1.plot([], [], 'b-', label='Training Cost')
+    testing_cost_line, = ax1.plot([], [], 'r-', label='Testing Cost')
+
+    training_acc_line, = ax2.plot([], [], 'g--', label='Training %')
+    testing_acc_line, = ax2.plot([], [], 'm--', label='Testing %')
+
+    ax1.set_xlabel("Iterations")
+    ax1.set_ylabel("Cost")
+    ax2.set_ylabel("Percent Correct")
+
+    x = []
+
+    training_costs = []
+    testing_costs = []
+
+    training_accs = []
+    testing_accs = []
+
+    lines = [
+        training_cost_line,
+        testing_cost_line,
+        training_acc_line,
+        testing_acc_line
+    ]
+
+    ax1.legend(lines, [line.get_label() for line in lines])
+
     for i in range(simulations):
         neuralNetwork.fastLearn(random.sample(dataSet, 100), 0.2)
-        if(i % 1000 == 0):
-            print(f"{round(i/simulations*100,2)}%")
-            print(neuralNetwork.cost(dataSet))
-            print(neuralNetwork.percentCorrect(dataSet))
+        if(i % 100 == 0):
+            trainingCost = neuralNetwork.cost(dataSet)
+            trainingCorrect = neuralNetwork.percentCorrect(dataSet)
+            testingCost = neuralNetwork.cost(testingDataSet)
+            testingCorrect = neuralNetwork.percentCorrect(testingDataSet)
+            printData(trainingCost,trainingCorrect,testingCost,testingCorrect)
+            x.append(i)
+
+            training_costs.append(trainingCost)
+            testing_costs.append(testingCost)
+
+            training_accs.append(trainingCorrect)
+            testing_accs.append(testingCorrect)
+
+            training_cost_line.set_data(x, training_costs)
+            testing_cost_line.set_data(x, testing_costs)
+
+            training_acc_line.set_data(x, training_accs)
+            testing_acc_line.set_data(x, testing_accs)
+
+            ax1.relim()
+            ax1.autoscale_view()
+
+            ax2.relim()
+            ax2.autoscale_view()
+
+            fig.canvas.draw()
+            fig.canvas.flush_events()
+            plt.pause(0.001)
+
+    trainingCost = neuralNetwork.cost(dataSet)
+    trainingCorrect = neuralNetwork.percentCorrect(dataSet)
+    testingCost = neuralNetwork.cost(testingDataSet)
+    testingCorrect = neuralNetwork.percentCorrect(testingDataSet)
+    printData(trainingCost,trainingCorrect,testingCost,testingCorrect)
     neuralNetwork.printTrainingData(dataSet)
-    print("--------------------------")
-    print(neuralNetwork.cost(dataSet))
-    print(neuralNetwork.percentCorrect(dataSet))
-    testingDataSet = readFRCDataSet("FRCTestingData.csv")
-    print("testing")
-    print(neuralNetwork.cost(testingDataSet))
-    print(neuralNetwork.percentCorrect(testingDataSet))
     end = datetime.now()
     print(f"Time: {end - start}")
     neuralNetwork.save("frcNetwork.pkl")
+
+def printData(trainingCost,trainingCorrect,testingCost,testingCorrect):
+    print("--------------------------")
+    print(trainingCost)
+    print(trainingCorrect)
+    print("testing")
+    print(testingCost)
+    print(testingCorrect)
 
 if __name__ == "__main__":
     run()
