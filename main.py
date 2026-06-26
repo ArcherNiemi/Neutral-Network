@@ -207,7 +207,7 @@ def run():
     start = datetime.now()
     neuralNetwork = NeuralNetwork([6,8,8,2])
     dataSet = readFRCDataSet("FRCTrainingData.csv")
-    simulations = 200000
+    simulations = 2000
     testingDataSet = readFRCDataSet("FRCTestingData.csv")
 
     plt.ion()
@@ -280,7 +280,6 @@ def run():
     testingCost = neuralNetwork.cost(testingDataSet)
     testingCorrect = neuralNetwork.percentCorrect(testingDataSet)
     printData(trainingCost,trainingCorrect,testingCost,testingCorrect)
-    neuralNetwork.printTrainingData(testingDataSet)
     end = datetime.now()
     print(f"Time: {end - start}")
     neuralNetwork.save("frcNetwork.pkl")
