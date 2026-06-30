@@ -207,7 +207,7 @@ def run():
     start = datetime.now()
     neuralNetwork = NeuralNetwork([6,8,8,2])
     dataSet = readFRCDataSet("FRCTrainingData.csv")
-    simulations = 2000
+    simulations = 2000000
     testingDataSet = readFRCDataSet("FRCTestingData.csv")
 
     plt.ion()
@@ -244,7 +244,7 @@ def run():
     ax1.legend(lines, [line.get_label() for line in lines])
 
     for i in range(simulations):
-        neuralNetwork.fastLearn(random.sample(dataSet, 100), 2)
+        neuralNetwork.fastLearn(random.sample(dataSet, 200), 0.5)
         if(i % 1000 == 0):
             trainingCost = neuralNetwork.cost(dataSet)
             trainingCorrect = neuralNetwork.percentCorrect(dataSet)
